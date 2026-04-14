@@ -1,8 +1,7 @@
-const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, dialog } = require('electron');
+const log = require('electron-log');
+const { app, BrowserWindow, Tray, Menu, globalShortcut } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
-const fs = require('fs');
-const htmlDocx = require('html-docx-js');
-const PDFDocument = require('pdfkit');
 
 let win;
 let tray;
@@ -34,65 +33,76 @@ function createWindow() {
 function createTray() {
   tray = new Tray(path.join(__dirname, 'icon.png'));
 
-  const contextMenu = Menu.buildFromTemplate([
+  const menu = Menu.buildFromTemplate([
     { label: 'Open Notes', click: () => win.show() },
     { label: 'Hide', click: () => win.hide() },
     { type: 'separator' },
     { label: 'Quit', click: () => { app.isQuitting = true; app.quit(); } }
   ]);
 
+  tray.setContextMenu(menu);
   tray.setToolTip('Floating Notes');
-  tray.setContextMenu(contextMenu);
+
+  tray.on('click', () => {
+    win.isVisible() ? win.hide() : win.show();
+  });
 }
 
-function registerShortcuts() {
+function registerHotkey() {
   globalShortcut.register('Control+Alt+N', () => {
     win.isVisible() ? win.hide() : win.show();
   });
 }
 
-/* ================= EXPORT LOGIC ================= */
+/* ================= AUTO UPDATER ================= */
 
-// Export to Word
-ipcMain.on('export-word', async (event, htmlContent) => {
-  const file = await dialog.showSaveDialog({
-    filters: [{ name: 'Word Document', extensions: ['docx'] }]
+function setupUpdater() {
+  log.info("SETUP UPDATER FUNCTION CALLED");
+
+  autoUpdater.logger = log;
+  autoUpdater.logger.transports.file.level = 'info';
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => {
+    log.info('Checking for updates...');
   });
 
-  if (!file.canceled) {
-    const converted = htmlDocx.asBlob(htmlContent);
-
-    // Convert Blob → Buffer
-    const arrayBuffer = await converted.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    fs.writeFileSync(file.filePath, buffer);
-  }
-});
-
-// Export to PDF
-ipcMain.on('export-pdf', async (event, textContent) => {
-  const file = await dialog.showSaveDialog({
-    filters: [{ name: 'PDF', extensions: ['pdf'] }]
+  autoUpdater.on('update-available', (info) => {
+    log.info('Update available:', info.version);
   });
 
-  if (!file.canceled) {
-    const doc = new PDFDocument();
-    doc.pipe(fs.createWriteStream(file.filePath));
-    doc.text(textContent);
-    doc.end();
-  }
-});
+  autoUpdater.on('update-not-available', () => {
+    log.info('No update available');
+  });
 
-/* ================================================= */
+  autoUpdater.on('error', (err) => {
+    log.error('Updater error:', err);
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    log.info(`Download progress: ${progress.percent}%`);
+  });
+
+  autoUpdater.on('update-downloaded', () => {
+    log.info('Update downloaded - will install on quit');
+  });
+
+  setTimeout(() => {
+    autoUpdater.checkForUpdates();
+  }, 3000);
+}
+
+/* ============================================== */
 
 app.whenReady().then(() => {
+  console.log("APP STARTED - INITIALIZING UPDATER");
+
   createWindow();
   createTray();
-  registerShortcuts();
-  app.setLoginItemSettings({
-  openAtLogin: true
-  });
+  registerHotkey();
+  setupUpdater();
 });
 
 app.on('will-quit', () => {

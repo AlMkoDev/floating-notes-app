@@ -1,7 +1,7 @@
 {
   "name": "floating-notes-app",
   "author": "AlMkoDev",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Floating Notes App",
   "main": "main.js",
   "scripts": {
@@ -23,11 +23,13 @@
       {
         "provider": "github",
         "owner": "AlMkoDev",
-        "repo": "floating-notes-app"
+        "repo": "floating-notes-app",
+        "releaseType": "release"
       }
     ]
   },
   "dependencies": {
+    "electron-log": "^5.4.3",
     "electron-updater": "^6.8.3",
     "html-docx-js": "^0.3.1",
     "pdfkit": "^0.15.0",
