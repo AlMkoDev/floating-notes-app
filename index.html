@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Floating Notes</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/quill@2.0.0/dist/quill.snow.css" rel="stylesheet">
+
+  <style>
+    body {
+      margin: 0;
+      background: #1e1e1e;
+      font-family: Arial, sans-serif;
+      color: white;
+    }
+
+    #drag-bar {
+      height: 30px;
+      background: #111;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      -webkit-app-region: drag;
+    }
+
+    #note-controls {
+      display: flex;
+      gap: 5px;
+    }
+
+    button, select {
+      -webkit-app-region: no-drag;
+    }
+
+    #toolbar {
+      background: #2d2d2d;
+      border-bottom: 1px solid #444;
+    }
+
+    .ql-toolbar.ql-snow {
+      border: none;
+    }
+
+    .ql-toolbar button svg,
+    .ql-toolbar .ql-picker svg {
+      filter: invert(1);
+    }
+
+    #editor {
+      height: 520px;
+      background: #1e1e1e;
+    }
+
+    .ql-container.ql-snow {
+      border: none;
+    }
+
+    .ql-editor {
+      color: white;
+    }
+
+    .note-list {
+      background: #181818;
+      padding: 5px;
+      display: flex;
+      gap: 5px;
+      overflow-x: auto;
+    }
+
+    .note-tab {
+      background: #333;
+      padding: 5px 10px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    .note-tab.active {
+      background: #007acc;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="drag-bar">
+    <span>Floating Notes</span>
+    <div id="note-controls">
+      <button onclick="createNote()">+</button>
+      <button onclick="exportWord()">DOCX</button>
+      <button onclick="exportPDF()">PDF</button>
+    </div>
+  </div>
+
+  <div class="note-list" id="noteList"></div>
+
+  <div id="toolbar">
+  <span class="ql-formats">
+    <button class="ql-bold"></button>
+    <button class="ql-italic"></button>
+    <button class="ql-underline"></button>
+    <button class="ql-strike"></button>
+  </span>
+
+  <span class="ql-formats">
+    <select class="ql-color"></select>
+    <select class="ql-background"></select>
+  </span>
+
+  <span class="ql-formats">
+    <button class="ql-list" value="ordered"></button>
+    <button class="ql-list" value="bullet"></button>
+  </span>
+
+  <span class="ql-formats">
+    <button class="ql-clean"></button>
+  </span>
+  </div>
+
+  <div id="editor"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/quill@2.0.0/dist/quill.js"></script>
+
+  <script>
+    const STORAGE_KEY = "floating_notes_multi";
+    let notes = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    let currentNoteId = null;
+
+    const quill = new Quill('#editor', {
+      theme: 'snow',
+      modules: { toolbar: '#toolbar' }
+    });
+
+    function saveNotes() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+    }
+
+    function renderNotes() {
+      const list = document.getElementById("noteList");
+      list.innerHTML = "";
+
+      notes.forEach(note => {
+        const tab = document.createElement("div");
+        tab.className = "note-tab " + (note.id === currentNoteId ? "active" : "");
+        tab.innerText = note.title || "Note";
+        tab.onclick = () => switchNote(note.id);
+        list.appendChild(tab);
+      });
+    }
+
+    function createNote() {
+      const id = Date.now();
+      const newNote = { id, title: "Note " + (notes.length + 1), content: "" };
+      notes.push(newNote);
+      currentNoteId = id;
+      saveNotes();
+      renderNotes();
+      loadCurrentNote();
+    }
+
+    function switchNote(id) {
+      currentNoteId = id;
+      loadCurrentNote();
+      renderNotes();
+    }
+
+    function loadCurrentNote() {
+      const note = notes.find(n => n.id === currentNoteId);
+      if (note) {
+        quill.root.innerHTML = note.content;
+      }
+    }
+
+    quill.on('text-change', () => {
+      const note = notes.find(n => n.id === currentNoteId);
+      if (note) {
+        note.content = quill.root.innerHTML;
+        saveNotes();
+      }
+    });
+
+    // INIT
+    if (notes.length === 0) {
+      createNote();
+    } else {
+      currentNoteId = notes[0].id;
+      renderNotes();
+      loadCurrentNote();
+    }
+
+    const { ipcRenderer } = require('electron');
+
+    function exportWord() {
+        const content = quill.root.innerHTML;
+        ipcRenderer.send('export-word', content);
+    }
+
+    function exportPDF() {
+        const text = quill.getText();
+        ipcRenderer.send('export-pdf', text);
+    }
+  </script>
+
+</body>
+</html>
