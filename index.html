@@ -14,6 +14,81 @@
       color: white;
     }
 
+    /* ================= UPDATE UI ================= */
+
+    #update-banner {
+      display: none;
+      background: #111;
+      border-bottom: 1px solid #333;
+      padding: 8px 10px;
+      font-size: 12px;
+      align-items: center;
+      justify-content: space-between;
+      flex-direction: column;
+    }
+
+    #update-top {
+      display: flex;
+      width: 100%;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #restart-btn {
+      display: none;
+      background: #007acc;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+
+    #update-progress {
+      height: 4px;
+      background: #333;
+      width: 100%;
+      margin-top: 6px;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    #update-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: #00aaff;
+      transition: width 0.2s;
+    }
+
+    #changelog {
+      display: none;
+      width: 100%;
+      margin-top: 6px;
+      font-size: 11px;
+      color: #ccc;
+      max-height: 120px;
+      overflow-y: auto;
+      background: #0f0f0f;
+      padding: 6px;
+      border-radius: 4px;
+      white-space: pre-wrap;
+    }
+
+    #version-badge {
+      position: absolute;
+      top: 5px;
+      right: 10px;
+      font-size: 10px;
+      color: #888;
+      background: #111;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #333;
+    }
+
+    /* ================= APP ================= */
+
     #drag-bar {
       height: 30px;
       background: #111;
@@ -38,26 +113,9 @@
       border-bottom: 1px solid #444;
     }
 
-    .ql-toolbar.ql-snow {
-      border: none;
-    }
-
-    .ql-toolbar button svg,
-    .ql-toolbar .ql-picker svg {
-      filter: invert(1);
-    }
-
     #editor {
       height: 520px;
       background: #1e1e1e;
-    }
-
-    .ql-container.ql-snow {
-      border: none;
-    }
-
-    .ql-editor {
-      color: white;
     }
 
     .note-list {
@@ -81,8 +139,54 @@
     }
   </style>
 </head>
+
 <body>
 
+  <!-- ================= LICENSE GATE ================= -->
+<div id="license-gate" style="
+  display:none;
+  position:absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:#111;
+  z-index:9999;
+  padding:20px;
+  box-sizing:border-box;
+">
+
+  <h3>Activate Floating Notes</h3>
+
+  <input id="license-input" placeholder="Enter license key"
+    style="width:100%;padding:8px;margin-top:10px;background:#222;border:1px solid #444;color:white;" />
+
+  <button onclick="submitLicense()"
+    style="margin-top:10px;padding:8px 12px;background:#007acc;color:white;border:none;">
+    Activate
+  </button>
+
+  <p id="license-msg" style="font-size:12px;color:#aaa;margin-top:10px;"></p>
+  </div>
+
+  <!-- VERSION BADGE -->
+  <div id="version-badge">v1.0.2</div>
+
+  <!-- UPDATE UI -->
+  <div id="update-banner">
+    <div id="update-top">
+      <div id="update-text">Checking for updates...</div>
+      <button id="restart-btn" onclick="restartApp()">Restart</button>
+    </div>
+
+    <div id="update-progress">
+      <div id="update-progress-bar"></div>
+    </div>
+
+    <div id="changelog"></div>
+  </div>
+
+  <!-- APP -->
   <div id="drag-bar">
     <span>Floating Notes</span>
     <div id="note-controls">
@@ -95,26 +199,26 @@
   <div class="note-list" id="noteList"></div>
 
   <div id="toolbar">
-  <span class="ql-formats">
-    <button class="ql-bold"></button>
-    <button class="ql-italic"></button>
-    <button class="ql-underline"></button>
-    <button class="ql-strike"></button>
-  </span>
+    <span class="ql-formats">
+      <button class="ql-bold"></button>
+      <button class="ql-italic"></button>
+      <button class="ql-underline"></button>
+      <button class="ql-strike"></button>
+    </span>
 
-  <span class="ql-formats">
-    <select class="ql-color"></select>
-    <select class="ql-background"></select>
-  </span>
+    <span class="ql-formats">
+      <select class="ql-color"></select>
+      <select class="ql-background"></select>
+    </span>
 
-  <span class="ql-formats">
-    <button class="ql-list" value="ordered"></button>
-    <button class="ql-list" value="bullet"></button>
-  </span>
+    <span class="ql-formats">
+      <button class="ql-list" value="ordered"></button>
+      <button class="ql-list" value="bullet"></button>
+    </span>
 
-  <span class="ql-formats">
-    <button class="ql-clean"></button>
-  </span>
+    <span class="ql-formats">
+      <button class="ql-clean"></button>
+    </span>
   </div>
 
   <div id="editor"></div>
@@ -166,9 +270,7 @@
 
     function loadCurrentNote() {
       const note = notes.find(n => n.id === currentNoteId);
-      if (note) {
-        quill.root.innerHTML = note.content;
-      }
+      if (note) quill.root.innerHTML = note.content;
     }
 
     quill.on('text-change', () => {
@@ -179,7 +281,6 @@
       }
     });
 
-    // INIT
     if (notes.length === 0) {
       createNote();
     } else {
@@ -191,14 +292,97 @@
     const { ipcRenderer } = require('electron');
 
     function exportWord() {
-        const content = quill.root.innerHTML;
-        ipcRenderer.send('export-word', content);
+      ipcRenderer.send('export-word', quill.root.innerHTML);
     }
 
     function exportPDF() {
-        const text = quill.getText();
-        ipcRenderer.send('export-pdf', text);
+      ipcRenderer.send('export-pdf', quill.getText());
     }
+
+    /* ================= UPDATE SYSTEM ================= */
+
+    ipcRenderer.on('update-status', (event, data) => {
+      const banner = document.getElementById('update-banner');
+      const text = document.getElementById('update-text');
+      const btn = document.getElementById('restart-btn');
+      const changelog = document.getElementById('changelog');
+
+      banner.style.display = 'flex';
+
+      if (data.status === 'checking') {
+        text.innerText = 'Checking for updates...';
+      }
+
+      if (data.status === 'available') {
+        text.innerText = `Update available: v${data.version}`;
+      }
+
+      if (data.status === 'none') {
+        banner.style.display = 'none';
+      }
+
+      if (data.status === 'downloaded') {
+        text.innerText = 'Update ready to install';
+        btn.style.display = 'inline-block';
+      }
+
+      if (data.status === 'error') {
+        text.innerText = 'Update error: ' + data.message;
+      }
+    });
+
+    ipcRenderer.on('update-download', (event, data) => {
+      document.getElementById('update-progress-bar').style.width = data.percent + '%';
+    });
+
+    ipcRenderer.on('update-meta', (event, data) => {
+      const changelog = document.getElementById('changelog');
+
+      if (data.releaseNotes) {
+        changelog.style.display = 'block';
+        changelog.innerText = data.releaseNotes;
+      }
+
+      if (data.version) {
+        document.getElementById('version-badge').innerText = "v" + data.version;
+      }
+    });
+
+    function restartApp() {
+      ipcRenderer.send('restart-app');
+    }
+
+    /* ================= LICENSE GATE ================= */
+    function showLicenseGate(show) {
+  document.getElementById('license-gate').style.display = show ? 'block' : 'none';
+}
+
+function submitLicense() {
+  const key = document.getElementById('license-input').value;
+  ipcRenderer.send('validate-license', key);
+}
+
+ipcRenderer.on('license-result', (event, data) => {
+  const msg = document.getElementById('license-msg');
+
+  if (data.valid) {
+    msg.innerText = "Activated successfully";
+    showLicenseGate(false);
+  } else {
+    msg.innerText = "Invalid license key";
+  }
+});
+
+ipcRenderer.on('license-status', (event, data) => {
+  if (!data.valid) {
+    showLicenseGate(true);
+  } else {
+    showLicenseGate(false);
+  }
+});
+
+// ask main process for status
+ipcRenderer.send('check-license');
   </script>
 
 </body>
